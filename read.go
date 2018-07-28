@@ -98,18 +98,19 @@ func (r *Reader) errorf(format string, args ...interface{}) {
 }
 
 // Open opens a file for reading.
-func Open(file string) (*Reader, error) {
-	// TODO: Deal with closing file.
+func Open(file string) (*os.File, *Reader, error) {
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, err
+		f.Close()
+		return nil, nil, err
 	}
 	fi, err := f.Stat()
 	if err != nil {
 		f.Close()
-		return nil, err
+		return nil, nil, err
 	}
-	return NewReader(f, fi.Size())
+	reader, err := NewReader(f, fi.Size())
+	return f, reader, err
 }
 
 // NewReader opens a file for reading, using the data in f with the given total size.
