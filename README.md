@@ -53,7 +53,7 @@ func readPdf(path string) (string, error) {
 
 ```golang
 func readPdf2(path string) (string, error) {
-	r, err := pdf.Open(path)
+	f, r, err := pdf.Open(path)
 	// remember close file
 	defer f.Close()
 	if err != nil {
