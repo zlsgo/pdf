@@ -33,13 +33,18 @@ func main() {
 }
 
 func readPdf(path string) (string, error) {
-	r, err := pdf.Open(path)
+	f, r, err := pdf.Open(path)
+	// remember close file
+    defer f.Close()
 	if err != nil {
 		return "", err
 	}
-
 	var buf bytes.Buffer
-	buf.ReadFrom(r.GetPlainText())
+    b, err := r.GetPlainText()
+    if err != nil {
+        return "", err
+    }
+    buf.ReadFrom(b)
 	return buf.String(), nil
 }
 ```
@@ -49,6 +54,8 @@ func readPdf(path string) (string, error) {
 ```golang
 func readPdf2(path string) (string, error) {
 	r, err := pdf.Open(path)
+	// remember close file
+	defer f.Close()
 	if err != nil {
 		return "", err
 	}
