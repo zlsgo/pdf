@@ -552,15 +552,20 @@ func (p Page) Content() Content {
 	var text []Text
 	showText := func(s string) {
 		n := 0
-		for _, ch := range enc.Decode(s) {
-			Trm := matrix{{g.Tfs * g.Th, 0, 0}, {0, g.Tfs, 0}, {0, g.Trise, 1}}.mul(g.Tm).mul(g.CTM)
-			w0 := g.Tf.Width(int(s[n]))
+		decoded := enc.Decode(s)
+		for _, ch := range decoded {
+			var w0 float64
+			if n < len(s) {
+				w0 = g.Tf.Width(int(s[n]))
+			}
 			n++
 
 			f := g.Tf.BaseFont()
 			if i := strings.Index(f, "+"); i >= 0 {
 				f = f[i+1:]
 			}
+
+			Trm := matrix{{g.Tfs * g.Th, 0, 0}, {0, g.Tfs, 0}, {0, g.Trise, 1}}.mul(g.Tm).mul(g.CTM)
 			text = append(text, Text{f, Trm[0][0], Trm[2][0], Trm[2][1], w0 / 1000 * Trm[0][0], string(ch)})
 
 			tx := w0/1000*g.Tfs + g.Tc
