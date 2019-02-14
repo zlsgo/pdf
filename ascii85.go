@@ -16,7 +16,7 @@ func newAlphaReader(reader io.Reader) *alphaReader {
 	return &alphaReader{reader: reader}
 }
 
-func checkAscii85(r byte) byte {
+func checkASCII85(r byte) byte {
 	if r >= '!' && r <= 'u' { // 33 <= ascii85 <=117
 		return r
 	}
@@ -36,7 +36,7 @@ func (a *alphaReader) Read(p []byte) (int, error) {
 	buf := make([]byte, n)
 	tilda := false
 	for i := 0; i < n; i++ {
-		char := checkAscii85(p[i])
+		char := checkASCII85(p[i])
 		if char == '>' && tilda { // end of data
 			break
 		}

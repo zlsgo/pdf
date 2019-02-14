@@ -842,14 +842,15 @@ func applyFilter(rd io.Reader, name string, param Value) io.Reader {
 			return &pngUpReader{r: zr, hist: make([]byte, 1+columns), tmp: make([]byte, 1+columns)}
 		}
 	case "ASCII85Decode":
-		cleanAscii85 := newAlphaReader(rd)
-		decoder := ascii85.NewDecoder(cleanAscii85)
+		cleanASCII85 := newAlphaReader(rd)
+		decoder := ascii85.NewDecoder(cleanASCII85)
 
-		if param.Keys() == nil {
-			return decoder
-		} else {
+		switch param.Keys() {
+		default:
 			fmt.Println("param=", param)
 			panic("not expected DecodeParms for ascii85")
+		case nil:
+			return decoder
 		}
 	}
 }
