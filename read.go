@@ -67,6 +67,7 @@ import (
 	"crypto/cipher"
 	"crypto/md5"
 	"crypto/rc4"
+	"encoding/ascii85"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -839,6 +840,17 @@ func applyFilter(rd io.Reader, name string, param Value) io.Reader {
 			panic("pred")
 		case 12:
 			return &pngUpReader{r: zr, hist: make([]byte, 1+columns), tmp: make([]byte, 1+columns)}
+		}
+	case "ASCII85Decode":
+		cleanASCII85 := newAlphaReader(rd)
+		decoder := ascii85.NewDecoder(cleanASCII85)
+
+		switch param.Keys() {
+		default:
+			fmt.Println("param=", param)
+			panic("not expected DecodeParms for ascii85")
+		case nil:
+			return decoder
 		}
 	}
 }
