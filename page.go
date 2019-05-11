@@ -547,8 +547,8 @@ func (p Page) GetPlainText(fonts map[string]*Font) (result string, err error) {
 	return textBuilder.String(), nil
 }
 
-// GetTextBlocks returns the page's all text in chunks of words
-func (p Page) GetTextBlocks() (result map[float64]TextVertical, err error) {
+// GetTextByColumn returns the page's all text grouped by column
+func (p Page) GetTextByColumn() (result map[float64]TextVertical, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			result = map[float64]TextVertical{}
@@ -556,12 +556,8 @@ func (p Page) GetTextBlocks() (result map[float64]TextVertical, err error) {
 		}
 	}()
 
-	strm := p.V.Key("Contents")
-	var enc TextEncoding = &nopEncoder{}
-
 	result = map[float64]TextVertical{}
-	var currentX, currentY float64
-	showText := func(s string) {
+	showText := func(currentX, currentY float64, s string) {
 		result[currentX] = append(result[currentX], Text{
 			S: s,
 			X: currentX,
@@ -569,6 +565,47 @@ func (p Page) GetTextBlocks() (result map[float64]TextVertical, err error) {
 		})
 	}
 
+	p.walkTextBlocks(showText)
+
+	for _, texts := range result {
+		sort.Sort(texts)
+	}
+
+	return result, nil
+}
+
+// GetTextByRow returns the page's all text grouped by rows
+func (p Page) GetTextByRow() (result map[float64]TextHorizontal, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = map[float64]TextHorizontal{}
+			err = errors.New(fmt.Sprint(r))
+		}
+	}()
+
+	result = map[float64]TextHorizontal{}
+	showText := func(currentX, currentY float64, s string) {
+		result[currentY] = append(result[currentY], Text{
+			S: s,
+			X: currentX,
+			Y: currentY,
+		})
+	}
+
+	p.walkTextBlocks(showText)
+
+	for _, texts := range result {
+		sort.Sort(texts)
+	}
+
+	return result, nil
+}
+
+func (p Page) walkTextBlocks(walker func(x, y float64, s string)) {
+	strm := p.V.Key("Contents")
+	var enc TextEncoding = &nopEncoder{}
+
+	var currentX, currentY float64
 	Interpret(strm, func(stk *Stack, op string) {
 		n := stk.Len()
 		args := make([]Value, n)
@@ -601,15 +638,13 @@ func (p Page) GetTextBlocks() (result map[float64]TextVertical, err error) {
 				panic("bad Tj operator")
 			}
 
-			for _, w := range strings.Split(args[0].Text(), "|") {
-				showText(w)
-			}
+			walker(currentX, currentY, args[0].Text())
 		case "TJ": // show text, allowing individual glyph positioning
 			v := args[0]
 			for i := 0; i < v.Len(); i++ {
 				x := v.Index(i)
 				if x.Kind() == String {
-					showText(x.RawString())
+					walker(currentX, currentY, x.Text())
 				}
 			}
 		case "Tm":
@@ -617,12 +652,6 @@ func (p Page) GetTextBlocks() (result map[float64]TextVertical, err error) {
 			currentY = args[5].Float64()
 		}
 	})
-
-	for _, texts := range result {
-		sort.Sort(texts)
-	}
-
-	return result, nil
 }
 
 // Content returns the page's content.
@@ -855,7 +884,7 @@ func (x TextVertical) Less(i, j int) bool {
 	return x[i].X < x[j].X
 }
 
-// TextVertical implements sort.Interface for sorting
+// TextHorizontal implements sort.Interface for sorting
 // a slice of Text values in horizontal order, left to right,
 // and then top to bottom within a column.
 type TextHorizontal []Text
