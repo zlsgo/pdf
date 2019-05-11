@@ -547,56 +547,126 @@ func (p Page) GetPlainText(fonts map[string]*Font) (result string, err error) {
 	return textBuilder.String(), nil
 }
 
+// Column represents the contents of a column
+type Column struct {
+	Position int64
+	Content  TextVertical
+}
+
+// Columns is a list of column
+type Columns []*Column
+
 // GetTextByColumn returns the page's all text grouped by column
-func (p Page) GetTextByColumn() (result map[float64]TextVertical, err error) {
+func (p Page) GetTextByColumn() (Columns, error) {
+	result := Columns{}
+	var err error
+
 	defer func() {
 		if r := recover(); r != nil {
-			result = map[float64]TextVertical{}
+			result = Columns{}
 			err = errors.New(fmt.Sprint(r))
 		}
 	}()
 
-	result = map[float64]TextVertical{}
 	showText := func(currentX, currentY float64, s string) {
-		result[currentX] = append(result[currentX], Text{
+		text := Text{
 			S: s,
 			X: currentX,
 			Y: currentY,
-		})
+		}
+
+		var currentColumn *Column
+		columnFound := false
+		for _, column := range result {
+			if int64(currentX) == column.Position {
+				currentColumn = column
+				columnFound = true
+				break
+			}
+		}
+
+		if !columnFound {
+			currentColumn = &Column{
+				Position: int64(currentX),
+				Content:  TextVertical{},
+			}
+			result = append(result, currentColumn)
+		}
+
+		currentColumn.Content = append(currentColumn.Content, text)
 	}
 
 	p.walkTextBlocks(showText)
 
-	for _, texts := range result {
-		sort.Sort(texts)
+	for _, column := range result {
+		sort.Sort(column.Content)
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Position < result[j].Position
+	})
 
 	return result, nil
 }
 
+// Row represents the contents of a row
+type Row struct {
+	Position int64
+	Content  TextHorizontal
+}
+
+// Rows is a list of rows
+type Rows []*Row
+
 // GetTextByRow returns the page's all text grouped by rows
-func (p Page) GetTextByRow() (result map[float64]TextHorizontal, err error) {
+func (p Page) GetTextByRow() (Rows, error) {
+	result := Rows{}
+	var err error
+
 	defer func() {
 		if r := recover(); r != nil {
-			result = map[float64]TextHorizontal{}
+			result = Rows{}
 			err = errors.New(fmt.Sprint(r))
 		}
 	}()
 
-	result = map[float64]TextHorizontal{}
 	showText := func(currentX, currentY float64, s string) {
-		result[currentY] = append(result[currentY], Text{
+		text := Text{
 			S: s,
 			X: currentX,
 			Y: currentY,
-		})
+		}
+
+		var currentRow *Row
+		rowFound := false
+		for _, row := range result {
+			if int64(currentY) == row.Position {
+				currentRow = row
+				rowFound = true
+				break
+			}
+		}
+
+		if !rowFound {
+			currentRow = &Row{
+				Position: int64(currentY),
+				Content:  TextHorizontal{},
+			}
+			result = append(result, currentRow)
+		}
+
+		currentRow.Content = append(currentRow.Content, text)
 	}
 
 	p.walkTextBlocks(showText)
 
-	for _, texts := range result {
-		sort.Sort(texts)
+	for _, row := range result {
+		sort.Sort(row.Content)
 	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Position > result[j].Position
+	})
 
 	return result, nil
 }
