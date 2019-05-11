@@ -606,7 +606,7 @@ func (p Page) GetTextByColumn() (Columns, error) {
 		return result[i].Position < result[j].Position
 	})
 
-	return result, nil
+	return result, err
 }
 
 // Row represents the contents of a row
@@ -668,12 +668,11 @@ func (p Page) GetTextByRow() (Rows, error) {
 		return result[i].Position > result[j].Position
 	})
 
-	return result, nil
+	return result, err
 }
 
 func (p Page) walkTextBlocks(walker func(x, y float64, s string)) {
 	strm := p.V.Key("Contents")
-	var enc TextEncoding = &nopEncoder{}
 
 	var currentX, currentY float64
 	Interpret(strm, func(stk *Stack, op string) {
@@ -692,7 +691,6 @@ func (p Page) walkTextBlocks(walker func(x, y float64, s string)) {
 			if len(args) != 2 {
 				panic("bad TL")
 			}
-			enc = &nopEncoder{}
 		case "\"": // set spacing, move to next line, and show text
 			if len(args) != 3 {
 				panic("bad \" operator")
