@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
@@ -544,6 +545,84 @@ func (p Page) GetPlainText(fonts map[string]*Font) (result string, err error) {
 		}
 	})
 	return textBuilder.String(), nil
+}
+
+// GetTextBlocks returns the page's all text in chunks of words
+func (p Page) GetTextBlocks() (result map[float64]TextVertical, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			result = map[float64]TextVertical{}
+			err = errors.New(fmt.Sprint(r))
+		}
+	}()
+
+	strm := p.V.Key("Contents")
+	var enc TextEncoding = &nopEncoder{}
+
+	result = map[float64]TextVertical{}
+	var currentX, currentY float64
+	showText := func(s string) {
+		result[currentX] = append(result[currentX], Text{
+			S: s,
+			X: currentX,
+			Y: currentY,
+		})
+	}
+
+	Interpret(strm, func(stk *Stack, op string) {
+		n := stk.Len()
+		args := make([]Value, n)
+		for i := n - 1; i >= 0; i-- {
+			args[i] = stk.Pop()
+		}
+
+		//fmt.Println(op, "->", args)
+		switch op {
+		default:
+			return
+		case "T*": // move to start of next line
+		case "Tf": // set text font and size
+			if len(args) != 2 {
+				panic("bad TL")
+			}
+			enc = &nopEncoder{}
+		case "\"": // set spacing, move to next line, and show text
+			if len(args) != 3 {
+				panic("bad \" operator")
+			}
+			fallthrough
+		case "'": // move to next line and show text
+			if len(args) != 1 {
+				panic("bad ' operator")
+			}
+			fallthrough
+		case "Tj": // show text
+			if len(args) != 1 {
+				panic("bad Tj operator")
+			}
+
+			for _, w := range strings.Split(args[0].Text(), "|") {
+				showText(w)
+			}
+		case "TJ": // show text, allowing individual glyph positioning
+			v := args[0]
+			for i := 0; i < v.Len(); i++ {
+				x := v.Index(i)
+				if x.Kind() == String {
+					showText(x.RawString())
+				}
+			}
+		case "Tm":
+			currentX = args[4].Float64()
+			currentY = args[5].Float64()
+		}
+	})
+
+	for _, texts := range result {
+		sort.Sort(texts)
+	}
+
+	return result, nil
 }
 
 // Content returns the page's content.
