@@ -569,8 +569,16 @@ func (p Page) GetTextByColumn() (Columns, error) {
 	}()
 
 	showText := func(enc TextEncoding, currentX, currentY float64, s string) {
+		var textBuilder bytes.Buffer
+
+		for _, ch := range enc.Decode(s) {
+			_, err := textBuilder.WriteRune(ch)
+			if err != nil {
+				panic(err)
+			}
+		}
 		text := Text{
-			S: s,
+			S: textBuilder.String(),
 			X: currentX,
 			Y: currentY,
 		}
