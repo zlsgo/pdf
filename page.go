@@ -568,7 +568,7 @@ func (p Page) GetTextByColumn() (Columns, error) {
 		}
 	}()
 
-	showText := func(currentX, currentY float64, s string) {
+	showText := func(enc TextEncoding, currentX, currentY float64, s string) {
 		text := Text{
 			S: s,
 			X: currentX,
@@ -630,9 +630,17 @@ func (p Page) GetTextByRow() (Rows, error) {
 		}
 	}()
 
-	showText := func(currentX, currentY float64, s string) {
+	showText := func(enc TextEncoding, currentX, currentY float64, s string) {
+		var textBuilder bytes.Buffer
+		for _, ch := range enc.Decode(s) {
+			_, err := textBuilder.WriteRune(ch)
+			if err != nil {
+				panic(err)
+			}
+		}
+
 		text := Text{
-			S: s,
+			S: textBuilder.String(),
 			X: currentX,
 			Y: currentY,
 		}
@@ -671,9 +679,16 @@ func (p Page) GetTextByRow() (Rows, error) {
 	return result, err
 }
 
-func (p Page) walkTextBlocks(walker func(x, y float64, s string)) {
+func (p Page) walkTextBlocks(walker func(enc TextEncoding, x, y float64, s string)) {
 	strm := p.V.Key("Contents")
 
+	fonts := make(map[string]*Font)
+	for _, font := range p.Fonts() {
+		f := p.Font(font)
+		fonts[font] = &f
+	}
+
+	var enc TextEncoding = &nopEncoder{}
 	var currentX, currentY float64
 	Interpret(strm, func(stk *Stack, op string) {
 		n := stk.Len()
@@ -691,6 +706,12 @@ func (p Page) walkTextBlocks(walker func(x, y float64, s string)) {
 			if len(args) != 2 {
 				panic("bad TL")
 			}
+
+			if font, ok := fonts[args[0].Name()]; ok {
+				enc = font.Encoder()
+			} else {
+				enc = &nopEncoder{}
+			}
 		case "\"": // set spacing, move to next line, and show text
 			if len(args) != 3 {
 				panic("bad \" operator")
@@ -706,13 +727,13 @@ func (p Page) walkTextBlocks(walker func(x, y float64, s string)) {
 				panic("bad Tj operator")
 			}
 
-			walker(currentX, currentY, args[0].Text())
+			walker(enc, currentX, currentY, args[0].RawString())
 		case "TJ": // show text, allowing individual glyph positioning
 			v := args[0]
 			for i := 0; i < v.Len(); i++ {
 				x := v.Index(i)
 				if x.Kind() == String {
-					walker(currentX, currentY, x.Text())
+					walker(enc, currentX, currentY, x.RawString())
 				}
 			}
 		case "Tm":
@@ -782,11 +803,11 @@ func (p Page) Content() Content {
 			g.CTM = m.mul(g.CTM)
 
 		case "gs": // set parameters from graphics state resource
-			gs := p.Resources().Key("ExtGState").Key(args[0].Name())
-			font := gs.Key("Font")
-			if font.Kind() == Array && font.Len() == 2 {
-				//fmt.Println("FONT", font)
-			}
+			//gs := p.Resources().Key("ExtGState").Key(args[0].Name())
+			//font := gs.Key("Font")
+			//if font.Kind() == Array && font.Len() == 2 {
+			//fmt.Println("FONT", font)
+			//}
 
 		case "f": // fill
 		case "g": // setgray
