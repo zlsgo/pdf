@@ -647,6 +647,8 @@ func (p Page) GetTextByRow() (Rows, error) {
 			}
 		}
 
+		//fmt.Println(textBuilder.String())
+
 		text := Text{
 			S: textBuilder.String(),
 			X: currentX,
@@ -744,6 +746,8 @@ func (p Page) walkTextBlocks(walker func(enc TextEncoding, x, y float64, s strin
 					walker(enc, currentX, currentY, x.RawString())
 				}
 			}
+		case "Td":
+			walker(enc, currentX, currentY, "")
 		case "Tm":
 			currentX = args[4].Float64()
 			currentY = args[5].Float64()
