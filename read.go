@@ -1042,7 +1042,18 @@ func cryptKey(key []byte, useAES bool, ptr objptr) []byte {
 func decryptString(key []byte, useAES bool, ptr objptr, x string) string {
 	key = cryptKey(key, useAES, ptr)
 	if useAES {
-		panic("AES not implemented")
+		s := []byte(x)
+		if len(s) < aes.BlockSize {
+			panic("Encrypted text shorter that AES block size")
+		}
+
+		block, _ := aes.NewCipher(key)
+		iv := s[:aes.BlockSize]
+		s = s[aes.BlockSize:]
+
+		stream := cipher.NewCBCDecrypter(block, iv)
+		stream.CryptBlocks(s, s)
+		x = string(s)
 	} else {
 		c, _ := rc4.NewCipher(key)
 		data := []byte(x)
