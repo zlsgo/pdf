@@ -81,5 +81,55 @@ func readPdf2(path string) (string, error) {
 }
 ```
 
+
+## Read text grouped by rows
+
+```golang
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/dcu/pdf"
+)
+
+func main() {
+	content, err := readPdf(os.Args[1]) // Read local pdf file
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(content)
+	return
+}
+
+func readPdf(path string) (string, error) {
+	f, r, err := pdf.Open(path)
+	defer func() {
+		_ = f.Close()
+	}()
+	if err != nil {
+		return "", err
+	}
+	totalPage := r.NumPage()
+
+	for pageIndex := 1; pageIndex <= totalPage; pageIndex++ {
+		p := r.Page(pageIndex)
+		if p.V.IsNull() {
+			continue
+		}
+
+		rows, _ := p.GetTextByRow()
+		for _, row := range rows {
+		    println(">>>> row: ", row.Position)
+		    for _, word := range row.Content {
+		        fmt.Println(word.S)
+		    }
+		}
+	}
+	return "", nil
+}
+```
+
 ## Demo
 ![Run example](https://i.gyazo.com/01fbc539e9872593e0ff6bac7e954e6d.gif)

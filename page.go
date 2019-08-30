@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 )
 
@@ -546,6 +547,214 @@ func (p Page) GetPlainText(fonts map[string]*Font) (result string, err error) {
 	return textBuilder.String(), nil
 }
 
+// Column represents the contents of a column
+type Column struct {
+	Position int64
+	Content  TextVertical
+}
+
+// Columns is a list of column
+type Columns []*Column
+
+// GetTextByColumn returns the page's all text grouped by column
+func (p Page) GetTextByColumn() (Columns, error) {
+	result := Columns{}
+	var err error
+
+	defer func() {
+		if r := recover(); r != nil {
+			result = Columns{}
+			err = errors.New(fmt.Sprint(r))
+		}
+	}()
+
+	showText := func(enc TextEncoding, currentX, currentY float64, s string) {
+		var textBuilder bytes.Buffer
+
+		for _, ch := range enc.Decode(s) {
+			_, err := textBuilder.WriteRune(ch)
+			if err != nil {
+				panic(err)
+			}
+		}
+		text := Text{
+			S: textBuilder.String(),
+			X: currentX,
+			Y: currentY,
+		}
+
+		var currentColumn *Column
+		columnFound := false
+		for _, column := range result {
+			if int64(currentX) == column.Position {
+				currentColumn = column
+				columnFound = true
+				break
+			}
+		}
+
+		if !columnFound {
+			currentColumn = &Column{
+				Position: int64(currentX),
+				Content:  TextVertical{},
+			}
+			result = append(result, currentColumn)
+		}
+
+		currentColumn.Content = append(currentColumn.Content, text)
+	}
+
+	p.walkTextBlocks(showText)
+
+	for _, column := range result {
+		sort.Sort(column.Content)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Position < result[j].Position
+	})
+
+	return result, err
+}
+
+// Row represents the contents of a row
+type Row struct {
+	Position int64
+	Content  TextHorizontal
+}
+
+// Rows is a list of rows
+type Rows []*Row
+
+// GetTextByRow returns the page's all text grouped by rows
+func (p Page) GetTextByRow() (Rows, error) {
+	result := Rows{}
+	var err error
+
+	defer func() {
+		if r := recover(); r != nil {
+			result = Rows{}
+			err = errors.New(fmt.Sprint(r))
+		}
+	}()
+
+	showText := func(enc TextEncoding, currentX, currentY float64, s string) {
+		var textBuilder bytes.Buffer
+		for _, ch := range enc.Decode(s) {
+			_, err := textBuilder.WriteRune(ch)
+			if err != nil {
+				panic(err)
+			}
+		}
+
+		//fmt.Println(textBuilder.String())
+
+		text := Text{
+			S: textBuilder.String(),
+			X: currentX,
+			Y: currentY,
+		}
+
+		var currentRow *Row
+		rowFound := false
+		for _, row := range result {
+			if int64(currentY) == row.Position {
+				currentRow = row
+				rowFound = true
+				break
+			}
+		}
+
+		if !rowFound {
+			currentRow = &Row{
+				Position: int64(currentY),
+				Content:  TextHorizontal{},
+			}
+			result = append(result, currentRow)
+		}
+
+		currentRow.Content = append(currentRow.Content, text)
+	}
+
+	p.walkTextBlocks(showText)
+
+	for _, row := range result {
+		sort.Sort(row.Content)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Position > result[j].Position
+	})
+
+	return result, err
+}
+
+func (p Page) walkTextBlocks(walker func(enc TextEncoding, x, y float64, s string)) {
+	strm := p.V.Key("Contents")
+
+	fonts := make(map[string]*Font)
+	for _, font := range p.Fonts() {
+		f := p.Font(font)
+		fonts[font] = &f
+	}
+
+	var enc TextEncoding = &nopEncoder{}
+	var currentX, currentY float64
+	Interpret(strm, func(stk *Stack, op string) {
+		n := stk.Len()
+		args := make([]Value, n)
+		for i := n - 1; i >= 0; i-- {
+			args[i] = stk.Pop()
+		}
+
+		//fmt.Println(op, "->", args)
+		switch op {
+		default:
+			return
+		case "T*": // move to start of next line
+		case "Tf": // set text font and size
+			if len(args) != 2 {
+				panic("bad TL")
+			}
+
+			if font, ok := fonts[args[0].Name()]; ok {
+				enc = font.Encoder()
+			} else {
+				enc = &nopEncoder{}
+			}
+		case "\"": // set spacing, move to next line, and show text
+			if len(args) != 3 {
+				panic("bad \" operator")
+			}
+			fallthrough
+		case "'": // move to next line and show text
+			if len(args) != 1 {
+				panic("bad ' operator")
+			}
+			fallthrough
+		case "Tj": // show text
+			if len(args) != 1 {
+				panic("bad Tj operator")
+			}
+
+			walker(enc, currentX, currentY, args[0].RawString())
+		case "TJ": // show text, allowing individual glyph positioning
+			v := args[0]
+			for i := 0; i < v.Len(); i++ {
+				x := v.Index(i)
+				if x.Kind() == String {
+					walker(enc, currentX, currentY, x.RawString())
+				}
+			}
+		case "Td":
+			walker(enc, currentX, currentY, "")
+		case "Tm":
+			currentX = args[4].Float64()
+			currentY = args[5].Float64()
+		}
+	})
+}
+
 // Content returns the page's content.
 func (p Page) Content() Content {
 	strm := p.V.Key("Contents")
@@ -606,11 +815,11 @@ func (p Page) Content() Content {
 			g.CTM = m.mul(g.CTM)
 
 		case "gs": // set parameters from graphics state resource
-			gs := p.Resources().Key("ExtGState").Key(args[0].Name())
-			font := gs.Key("Font")
-			if font.Kind() == Array && font.Len() == 2 {
-				//fmt.Println("FONT", font)
-			}
+			//gs := p.Resources().Key("ExtGState").Key(args[0].Name())
+			//font := gs.Key("Font")
+			//if font.Kind() == Array && font.Len() == 2 {
+			//fmt.Println("FONT", font)
+			//}
 
 		case "f": // fill
 		case "g": // setgray
@@ -776,7 +985,7 @@ func (x TextVertical) Less(i, j int) bool {
 	return x[i].X < x[j].X
 }
 
-// TextVertical implements sort.Interface for sorting
+// TextHorizontal implements sort.Interface for sorting
 // a slice of Text values in horizontal order, left to right,
 // and then top to bottom within a column.
 type TextHorizontal []Text
