@@ -24,6 +24,7 @@ import (
 )
 
 func main() {
+	pdf.DebugOn = true
 	content, err := readPdf("test.pdf") // Read local pdf file
 	if err != nil {
 		panic(err)

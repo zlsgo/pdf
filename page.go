@@ -178,7 +178,9 @@ func (f Font) getEncoder() TextEncoding {
 		case "Identity-H":
 			return f.charmapEncoding()
 		default:
-			println("unknown encoding", enc.Name())
+			if DebugOn {
+				println("unknown encoding", enc.Name())
+			}
 			return &nopEncoder{}
 		}
 	case Dict:
@@ -186,7 +188,9 @@ func (f Font) getEncoder() TextEncoding {
 	case Null:
 		return f.charmapEncoding()
 	default:
-		println("unexpected encoding", enc.String())
+		if DebugOn {
+			println("unexpected encoding", enc.String())
+		}
 		return &nopEncoder{}
 	}
 }
@@ -319,9 +323,13 @@ Parse:
 									r = append(r, []rune(utf16Decode(s))...)
 									continue Parse
 								}
-								fmt.Printf("array %v\n", bfrange.dst)
+								if DebugOn {
+									fmt.Printf("array %v\n", bfrange.dst)
+								}
 							} else {
-								fmt.Printf("unknown dst %v\n", bfrange.dst)
+								if DebugOn {
+									fmt.Printf("unknown dst %v\n", bfrange.dst)
+								}
 							}
 							r = append(r, noRune)
 							continue Parse
@@ -332,7 +340,9 @@ Parse:
 				}
 			}
 		}
-		println("no code space found")
+		if DebugOn {
+			println("no code space found")
+		}
 		r = append(r, noRune)
 		raw = raw[1:]
 	}
@@ -360,14 +370,18 @@ func readCmap(toUnicode Value) *cmap {
 			n = int(stk.Pop().Int64())
 		case "endcodespacerange":
 			if n < 0 {
-				println("missing begincodespacerange")
+				if DebugOn {
+					println("missing begincodespacerange")
+				}
 				ok = false
 				return
 			}
 			for i := 0; i < n; i++ {
 				hi, lo := stk.Pop().RawString(), stk.Pop().RawString()
 				if len(lo) == 0 || len(lo) != len(hi) {
-					println("bad codespace range")
+					if DebugOn {
+						println("bad codespace range")
+					}
 					ok = false
 					return
 				}
@@ -400,7 +414,9 @@ func readCmap(toUnicode Value) *cmap {
 			stk.Pop().Name() // key
 			stk.Push(value)
 		default:
-			println("interp\t", op)
+			if DebugOn {
+				println("interp\t", op)
+			}
 		}
 	})
 	if !ok {
@@ -647,7 +663,9 @@ func (p Page) GetTextByRow() (Rows, error) {
 			}
 		}
 
-		//fmt.Println(textBuilder.String())
+		// if DebugOn {
+		// 	fmt.Println(textBuilder.String())
+		// }
 
 		text := Text{
 			S: textBuilder.String(),
@@ -707,7 +725,10 @@ func (p Page) walkTextBlocks(walker func(enc TextEncoding, x, y float64, s strin
 			args[i] = stk.Pop()
 		}
 
-		//fmt.Println(op, "->", args)
+		// if DebugOn {
+		// 	fmt.Println(op, "->", args)
+		// }
+
 		switch op {
 		default:
 			return
@@ -800,7 +821,9 @@ func (p Page) Content() Content {
 		}
 		switch op {
 		default:
-			//fmt.Println(op, args)
+			// if DebugOn {
+			// 	fmt.Println(op, args)
+			// }
 			return
 
 		case "cm": // update g.CTM
@@ -818,7 +841,9 @@ func (p Page) Content() Content {
 			//gs := p.Resources().Key("ExtGState").Key(args[0].Name())
 			//font := gs.Key("Font")
 			//if font.Kind() == Array && font.Len() == 2 {
-			//fmt.Println("FONT", font)
+			// if DebugOn {
+			// 	fmt.Println("FONT", font)
+			// }
 			//}
 
 		case "f": // fill
@@ -885,7 +910,9 @@ func (p Page) Content() Content {
 			g.Tf = p.Font(f)
 			enc = g.Tf.Encoder()
 			if enc == nil {
-				println("no cmap for", f)
+				if DebugOn {
+					println("no cmap for", f)
+				}
 				enc = &nopEncoder{}
 			}
 			g.Tfs = args[1].Float64()
