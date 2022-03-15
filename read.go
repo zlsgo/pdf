@@ -136,21 +136,23 @@ var headerRegexp = regexp.MustCompile(`^%PDF-1\.[0-7]\s*\r?\n`)
 // to try. If pw returns the empty string, NewReaderEncrypted stops trying to decrypt
 // the file and returns an error.
 func NewReaderEncrypted(f io.ReaderAt, size int64, pw func() string) (*Reader, error) {
+	const headerLen = 11
 	buf := make([]byte, 11)
 	f.ReadAt(buf, 0)
 	if !headerRegexp.Match(buf) {
 		return nil, fmt.Errorf("not a PDF file: invalid header")
 	}
 	end := size
-	const endChunk = 100
+	// https://stackoverflow.com/questions/11896858/does-the-eof-in-a-pdf-have-to-appear-within-the-last-1024-bytes-of-the-file
+	const endChunk = 1024
 	buf = make([]byte, endChunk)
-	f.ReadAt(buf, end-endChunk)
-	for len(buf) > 0 && buf[len(buf)-1] == '\n' || buf[len(buf)-1] == '\r' {
-		buf = buf[:len(buf)-1]
+	_, err := f.ReadAt(buf, end-endChunk)
+	if err != nil {
+		return nil, err
 	}
-	buf = bytes.TrimRight(buf, "\r\n\t ")
-	if !bytes.HasSuffix(buf, []byte("%%EOF")) {
-		return nil, fmt.Errorf("not a PDF file: missing %%%%EOF")
+	const eof = "%%EOF"
+	if findLastLine(buf, eof) < 0 {
+		return nil, fmt.Errorf("not a PDF file: missing %s", eof)
 	}
 	i := findLastLine(buf, "startxref")
 	if i < 0 {
@@ -439,6 +441,8 @@ func readXrefTableData(b *buffer, table []xref) ([]xref, error) {
 	return table, nil
 }
 
+// findLastLine looks for the last index of s in the given buffer. The search
+// term must be alone in the line (surrounded by newlines).
 func findLastLine(buf []byte, s string) int {
 	bs := []byte(s)
 	max := len(buf)
@@ -447,7 +451,14 @@ func findLastLine(buf []byte, s string) int {
 		if i <= 0 || i+len(bs) >= len(buf) {
 			return -1
 		}
-		if (buf[i-1] == '\n' || buf[i-1] == '\r') && (buf[i+len(bs)] == '\n' || buf[i+len(bs)] == '\r') {
+		if buf[i-1] == '\n' || buf[i-1] == '\r' {
+			return i
+		}
+		if buf[i+len(bs)] == '\n' || buf[i+len(bs)] == '\r' {
+			return i
+		}
+		// libtiff/tiff2pdf can add an extra space before the newline
+		if buf[i+len(bs)] == ' ' || buf[i+len(bs)+1] == '\n' || buf[i+len(bs)+1] == '\r' {
 			return i
 		}
 		max = i
