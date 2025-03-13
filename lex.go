@@ -20,7 +20,6 @@ import (
 //	string, a PDF string literal
 //	keyword, a PDF keyword
 //	name, a PDF name without the leading slash
-//
 type token interface{}
 
 // A name is a PDF name, without the leading slash.
@@ -88,7 +87,7 @@ func (b *buffer) reload() bool {
 	if n == 0 && err != nil {
 		b.buf = b.buf[:0]
 		b.pos = 0
-		if b.allowEOF && err == io.EOF {
+		if b.allowEOF && (err == io.EOF || err == io.ErrUnexpectedEOF) {
 			b.eof = true
 			return false
 		}

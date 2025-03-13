@@ -68,7 +68,8 @@ func (r *Reader) GetPlainText() (reader io.Reader, err error) {
 	for i := 1; i <= pages; i++ {
 		p := r.Page(i)
 		for _, name := range p.Fonts() { // cache fonts so we don't continually parse charmap
-			if _, ok := fonts[name]; !ok {
+			_, ok := fonts[name]
+			if !ok {
 				f := p.Font(name)
 				fonts[name] = &f
 			}
@@ -178,6 +179,8 @@ func (f Font) getEncoder() TextEncoding {
 			return &byteEncoder{&macRomanEncoding}
 		case "Identity-H":
 			return f.charmapEncoding()
+		case "UniGB-UTF16-H":
+			return &utf16hDecode{}
 		default:
 			if DebugOn {
 				println("unknown encoding", enc.Name())
@@ -248,8 +251,7 @@ type TextEncoding interface {
 	Decode(raw string) (text string)
 }
 
-type nopEncoder struct {
-}
+type nopEncoder struct{}
 
 func (e *nopEncoder) Decode(raw string) (text string) {
 	return raw
@@ -531,7 +533,8 @@ func (p Page) GetPlainText(fonts map[string]*Font) (result string, err error) {
 			if len(args) != 2 {
 				panic("bad TL")
 			}
-			if font, ok := fonts[args[0].Name()]; ok {
+			font, ok := fonts[args[0].Name()]
+			if ok {
 				enc = font.Encoder()
 			} else {
 				enc = &nopEncoder{}
@@ -782,7 +785,7 @@ func (p Page) Content() Content {
 	strm := p.V.Key("Contents")
 	var enc TextEncoding = &nopEncoder{}
 
-	var g = gstate{
+	g := gstate{
 		Th:  1,
 		CTM: ident,
 	}

@@ -10,7 +10,7 @@ Features
 
 ## Install:
 
-`go get -u github.com/ledongthuc/pdf`
+`go get -u github.com/zlsgo/pdf`
 
 
 ## Read plain text
@@ -22,7 +22,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/ledongthuc/pdf"
+	"github.com/zlsgo/pdf"
 )
 
 func main() {
@@ -94,7 +94,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ledongthuc/pdf"
+	"github.com/zlsgo/pdf"
 )
 
 func main() {
@@ -133,6 +133,3 @@ func readPdf(path string) (string, error) {
 	return "", nil
 }
 ```
-
-## Demo
-![Run example](https://i.gyazo.com/01fbc539e9872593e0ff6bac7e954e6d.gif)

@@ -129,7 +129,7 @@ func NewReader(f io.ReaderAt, size int64) (*Reader, error) {
 // headerRegexp is used to check the validity of the header line of a PDF.
 // This should be able to support extra spaces between the version and the
 // newline (as inserted by libtiff/tiff2pdf) as well as supporting CRLF and LF.
-var headerRegexp = regexp.MustCompile(`^%PDF-1\.[0-7]\s*\r?\n`)
+var headerRegexp = regexp.MustCompile(`^%PDF-\d+\.\d+`)
 
 // NewReaderEncrypted opens a file for reading, using the data in f with the given total size.
 // If the PDF is encrypted, NewReaderEncrypted calls pw repeatedly to obtain passwords
@@ -139,6 +139,7 @@ func NewReaderEncrypted(f io.ReaderAt, size int64, pw func() string) (*Reader, e
 	const headerLen = 11
 	buf := make([]byte, 11)
 	f.ReadAt(buf, 0)
+
 	if !headerRegexp.Match(buf) {
 		return nil, fmt.Errorf("not a PDF file: invalid header")
 	}
@@ -782,7 +783,7 @@ func (r *Reader) resolve(parent objptr, x interface{}) Value {
 			def, ok := obj.(objdef)
 			if !ok {
 				panic(fmt.Errorf("loading %v: found %T instead of objdef", ptr, obj))
-				return Value{}
+				// return Value{}
 			}
 			if def.ptr != ptr {
 				panic(fmt.Errorf("loading %v: found %v", ptr, def.ptr))
@@ -1105,7 +1106,7 @@ func decryptStream(key []byte, useAES bool, ptr objptr, rd io.Reader) io.Reader 
 		rd = &cbcReader{cbc: cbc, rd: rd, buf: make([]byte, 16)}
 	} else {
 		c, _ := rc4.NewCipher(key)
-		rd = &cipher.StreamReader{c, rd}
+		rd = &cipher.StreamReader{S: c, R: rd}
 	}
 	return rd
 }

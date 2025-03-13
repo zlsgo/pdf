@@ -12,7 +12,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/ledongthuc/pdf"
+	"github.com/zlsgo/pdf"
 )
 
 var (
@@ -72,7 +72,7 @@ func main() {
 		if err == pdf.ErrInvalidPassword {
 			log.Fatal("password not found")
 		}
-		log.Fatal("reading pdf: %v", err)
+		log.Fatalf("reading pdf: %v", err)
 	}
 	fmt.Printf("password: %q\n", last)
 }
