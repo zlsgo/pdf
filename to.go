@@ -13,6 +13,11 @@ func ToText(path string) (string, error) {
 		return "", errors.New("file not exists")
 	}
 
+	s := pdftotext()
+	if s != nil {
+		return s(path)
+	}
+
 	f, r, err := Open(path)
 	if err != nil {
 		return "", err
