@@ -26,5 +26,22 @@ var pdftotext = zutil.Once(func() func(path string) (string, error) {
 		}
 		return out, nil
 	}
+})
 
+var markitdown = zutil.Once(func() func(path string) (string, error) {
+	code, out, _, err := zshell.Run("markitdown -v")
+	if err != nil || code != 0 || !(strings.Contains(out, "markitdown")) {
+		return nil
+	}
+
+	return func(path string) (string, error) {
+		code, out, errout, err := zshell.Run("markitdown " + path)
+		if err != nil {
+			return "", err
+		}
+		if code != 0 {
+			return "", errors.New(errout)
+		}
+		return out, nil
+	}
 })

@@ -15,7 +15,18 @@ func ToText(path string) (string, error) {
 
 	s := pdftotext()
 	if s != nil {
-		return s(path)
+		resp, err := s(path)
+		if err == nil {
+			return resp, nil
+		}
+	}
+
+	s = markitdown()
+	if s != nil {
+		resp, err := s(path)
+		if err == nil {
+			return resp, nil
+		}
 	}
 
 	f, r, err := Open(path)
