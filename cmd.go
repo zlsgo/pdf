@@ -8,6 +8,7 @@ import (
 	"github.com/sohaha/zlsgo/zutil"
 )
 
+
 var pdftotext = zutil.Once(func() func(path string) (string, error) {
 	// apt install poppler-utils
 
@@ -17,10 +18,14 @@ var pdftotext = zutil.Once(func() func(path string) (string, error) {
 	}
 
 	return func(path string) (string, error) {
-		code, out, errout, err := zshell.Run("pdftotext -enc UTF-8 " + path + " -")
+		code, out, errout, err := zshell.Run(`pdftotext -nopgbrk -enc UTF-8 "` + path + `" -`)
+		if code == 99 {
+			code, out, errout, err = zshell.Run(`pdftotext -nopgbrk -enc GBK "` + path + `" -`)
+		}
 		if err != nil {
 			return "", err
 		}
+
 		if code != 0 {
 			return "", errors.New(errout)
 		}
